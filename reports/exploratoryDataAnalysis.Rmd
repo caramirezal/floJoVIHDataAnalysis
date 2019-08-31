@@ -1,0 +1,72 @@
+---
+title: "Exploratory data Analysis on HIV patients data"
+author: "Carlos Ramirez Alvarez"
+date: "8/30/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+## Loading data
+
+```{r message=FALSE, warning=FALSE}
+## Data analysis on data from flowjo
+setwd('~/sc/floJoVIHDataAnalysis/sc/')
+library(mice)
+library(VIM)
+library(dplyr)
+library(missForest)
+library(e1071)
+
+vih <- read.table('../data/PolarizationANDcommitmentCD4Tc20180911.csv',
+                  sep = '\t', 
+                  header = TRUE)
+
+```
+
+## Evaluating the number or missing data
+
+
+```{r message=FALSE, warning=FALSE}
+#md.pattern(vih[vih$Group==' HIV', ])
+aggr(vih[vih$Group==' HIV', ], 
+    col=c('navyblue','yellow'),
+    numbers=TRUE, 
+    sortVars=TRUE,
+    labels=names(vih), 
+    cex.axis=.7,
+     gap=3, 
+     ylab=c("Missing data","Pattern"))
+```
+
+## Selecting only patients data
+
+```{r message=FALSE, warning=FALSE, warning=FALSE}
+vihCases <- vih[vih$Group==' HIV', ]
+
+## Getting variables with < 0.3 NAs
+naThresholdVar <- sapply(vihCases, function(x) sum(is.na(x))/nrow(vih) < 0.15)
+vihProcessed <- vih[, naThresholdVar]
+write.table(names(vihProcessed), 
+            '../data/variablesAboveThreshold.txt',
+            quote = FALSE, 
+            sep = '\t', 
+            row.names = FALSE,
+            col.names = FALSE)
+
+## dropping ID, Date and ID 
+vihProcessed <- vihProcessed[, ! colnames(vihProcessed) %in% c('ID', 
+                                                             'Date',
+                                                             'IDnumber')]
+```
+
+## Data imputation
+
+Imputation error using random forest is high.
+
+```{r message=FALSE, warning=FALSE, warning=FALSE}
+## Imputing data
+vihImputed <- missForest(vihProcessed, ntree = 300)
+vihImputed$OOBerror
+```
+
