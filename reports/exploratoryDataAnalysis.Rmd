@@ -17,6 +17,7 @@ library(VIM)
 library(dplyr)
 library(missForest)
 library(e1071)
+library(Hmisc)
 
 vih <- read.table('../data/PolarizationANDcommitmentCD4Tc20180911.csv',
                   sep = '\t', 
@@ -26,9 +27,11 @@ vih <- read.table('../data/PolarizationANDcommitmentCD4Tc20180911.csv',
 
 ## Evaluating the number or missing data
 
+From the follwing figure it can be seen that vast majority of variables has 10% or less missing data. Hence, 0.1 could be used as threshold for removing variables with so many missing data.
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, results='hide', fig.width=10, fig.height=7}
 #md.pattern(vih[vih$Group==' HIV', ])
+invisible(
 aggr(vih[vih$Group==' HIV', ], 
     col=c('navyblue','yellow'),
     numbers=TRUE, 
@@ -37,9 +40,12 @@ aggr(vih[vih$Group==' HIV', ],
     cex.axis=.7,
      gap=3, 
      ylab=c("Missing data","Pattern"))
+)
 ```
 
-## Selecting only patients data
+## Data cleaning
+
+Next, variables with less than 10% of missing values were selected for further analysis. ID, date and IDnumber were also removed.
 
 ```{r message=FALSE, warning=FALSE, warning=FALSE}
 vihCases <- vih[vih$Group==' HIV', ]
@@ -62,11 +68,46 @@ vihProcessed <- vihProcessed[, ! colnames(vihProcessed) %in% c('ID',
 
 ## Data imputation
 
-Imputation error using random forest is high.
+Here, two independent imputation strategies were implemented. A random forest approach and a very simple imputation strategy using median values in order we can compare two imputation methods.
+
+### Random forest imputation.
 
 ```{r message=FALSE, warning=FALSE, warning=FALSE}
-## Imputing data
-vihImputed <- missForest(vihProcessed, ntree = 300)
-vihImputed$OOBerror
+## Imputing data using random forest
+vihImputedForest <- missForest(vihProcessed, 
+                               ntree = 300)
+vihImputedForest$OOBerror
 ```
+
+NRMSE corresponds to a metric of imputation accuracy. Better results are expected to be closer to zero value. Hence, taking into account this metric the imputation accuracy on data is **low**.
+
+### Imputation with median values
+
+```{r}
+vihImputedHmisc <- as.data.frame(sapply(vihProcessed, 
+                                   impute, mean))
+```
+
+## Exploratory data analysis
+
+The following figures shows hierarchical clustering over both sets of imputed data.
+
+* **Random Forest imputed**
+
+```{r}
+vihImputedForest.m <- as.matrix(select(vihImputedForest$ximp, -Group))
+vih.cor.f <- cor(vihImputedForest.m) 
+heatmap(vih.cor.f, labCol = FALSE)
+```
+
+* **Median imputed**
+
+```{r}
+vihImputedMean.m <- as.matrix(select(vihImputedHmisc, -Group))
+vih.cor.m <- cor(vihImputedMean.m) 
+heatmap(vih.cor.m, labCol = FALSE)
+```
+
+
+
 
